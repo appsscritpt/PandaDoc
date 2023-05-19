@@ -1,0 +1,323 @@
+function listDocuments(name) {
+  // name = 'recreate all'
+  var updateOptions = {
+    'method': 'get',
+    'headers': {
+      'Authorization': 'Bearer ' + access_token,
+      'Content-Type': 'application/json;charset=UTF-8'
+    }
+  }                                   
+  var response = UrlFetchApp.fetch("https://api.pandadoc.com/public/v1/documents", updateOptions)
+  var responseJson = JSON.parse(response);
+  for(var i = 0; i < responseJson.results.length;i++) {
+       if(responseJson.results[i].name == name) {
+            var card_id = responseJson.results[i].id
+            Logger.log(card_id)
+            return card_id
+      }
+  }
+  return 'missed'
+}
+//'https://api.pandadoc.com/public/v1/templates?deleted=deleted&shared=false&q=q&tag=tag&count=count&page=page&folder_uuid=templates_folder_uuid' \
+function listTemplates(name) {
+  var access_token = '10b8e8be8124d488d4ca3c29484959b56d1c6aa7'  
+  var updateOptions = {
+    'method': 'get',
+    'headers': {
+      'Authorization': 'Bearer ' + access_token,
+      'Content-Type': 'application/json;charset=UTF-8'
+    }
+  }                                   
+  var response = UrlFetchApp.fetch("https://api.pandadoc.com/public/v1/templates", updateOptions)
+  var responseJson = JSON.parse(response);
+  for(var i = 0; i < responseJson.results.length;i++) {
+       if(responseJson.results[i].name == name) {
+            var card_id = responseJson.results[i].id
+            return card_id
+      }
+  }
+  return 'missed'
+}
+function deleteDoc(docID) {
+  docID ='EgRiCT94C2rwdatMDimtVY'
+  try {
+        var delOptions = {
+            'method': 'DELETE',
+            'headers': {
+              'Content-Type': 'application/json;charset=UTF-8',
+              'Authorization': 'API-Key ' + API
+            }
+          };  
+          var response = UrlFetchApp.fetch("https://api.pandadoc.com/public/v1/documents/" + docID, delOptions)
+          var responseJson = JSON.parse(response)
+          return 'deleted'
+  } catch(er) {
+    return 'Error'
+  }
+}
+function changeDocStatus () {
+    var docID = 'EgRiCT94C2rwdatMDimtVY' //listDocuments('test recreate')
+
+const options = {
+  "method": 'PATCH',
+  'headers': {
+    'accept': 'application/json',
+    'Content-Type': 'application/json',
+    'Authorization': 'API-Key ' + API 
+    },
+ "payload": '{"status": 12, "note": "A private note", "notify_recipients": false}',
+}
+try {
+      var response = UrlFetchApp.fetch("https://api.pandadoc.com/public/v1/documents/"  + docID + "/status/", options)
+      var responseJson = JSON.parse(response)
+} catch(er) {
+}
+
+}
+function updatePandaDocument(data,data1,products,sendDoc,go) {
+  if(go == false) {
+    return 'skipped'
+  }
+  var docID =  listDocuments(data[0])  
+  if (docID == 'missed' ) {
+    return createPandaDocument(data,data1,products,sendDoc)
+  }
+  
+  ///////////////////////////////////////////////////////////
+   var checkOptions = {
+    'method': 'GET',
+    'headers': {
+      'Authorization': 'Bearer ' + access_token,
+      'Content-Type': 'application/json;charset=UTF-8'
+    }
+  };  
+   var response = UrlFetchApp.fetch("https://api.pandadoc.com/public/v1/documents/" + docID, checkOptions)
+   var responseJson = JSON.parse(response)
+    if(responseJson.status != 'document.draft'){
+          return 'draft'
+    }
+   if(responseJson.status == 'document.sent'){
+                            return 'sent already'
+                            // var delRes = deleteDoc(docID) 
+                            // Logger.log('delRes: ' + delRes )
+                            // if(delRes == 'deleted'){
+                            //   if(sendDoc == true) {
+                            //     try {
+                            //       Logger.log('Re-creating documents')
+                            //       createPandaDocument(data,data1,products,sendDoc)
+                            //       docID = listDocuments(data[0])
+                            //       sendDocuments(docID)
+                            //       return 'recreated'
+                            //     } catch(er) {
+                            //         Logger.log(er)
+                            //       return er
+                            //     }   
+                            //   }
+                            // }
+   }
+  ////////////////////////////////////////
+  var payload = {};
+  payload.name = data[0]
+  var validDate = new Date(data1[5])
+  validDate.setDate(validDate.getDate() + 1)
+  payload.tokens = []
+  var data2 = [['Client.Address',data1[0]],
+  ['Recipient.FirstName',data1[1]],['Design.Fee',data1[2]],
+  ['Todays.Date',Utilities.formatDate(new Date(),Session.getTimeZone(),"MM/dd/YYYY")],
+  ['Rental.Fee',data1[3]],
+  ['Rental.Tax',data1[4]],
+  ['TotalDueUponStaging.Price',data1[6]],
+ ['valid date',Utilities.formatDate(validDate,Session.getTimeZone(),"MM/dd/YYYY")],
+ ['Contract.Date',Utilities.formatDate(new Date(),Session.getTimeZone(),"MM/dd/YYYY")],
+ ['Design.Date',Utilities.formatDate(validDate,Session.getTimeZone(),"MM/dd/YYYY")],['Rental Fee for 30 days', data1[3]],['Rental Tax for 30 days', data1[4]],
+ ['Rental.30d', data1[8]],['Rooms.Staged', data1[9]],['resp', data1[10]]
+]
+  for(var n = 0;n < data2.length;++n)
+  {
+    var token = {};
+    if(data2[n][1])
+    {
+      token.name = data2[n][0]
+      token.value = data2[n][1]
+      payload.tokens.push(token)
+    }
+  }
+
+  ////build pricing table array from products list
+  payload.pricing_tables = [];
+   var pt = {};
+  pt.name = "pricingtable1"; 
+  pt.data_merge = true
+  pt.options = {currency:"USD"};
+  pt.sections = [];
+  var section = {};
+  section.title = "Products";
+  section["default"] = true; 
+  section.rows = [];
+  
+  for(var n=0;n < products.length;n++)
+  {
+    var row = {};
+    row.data ={};
+    if(products[n][0])
+    {
+      row.data.Name = products[n][0]; 
+      //row.data.Description = products[n][1];
+      row.data.QTY = products[n][1];
+      row.data.Price = products[n][2];
+      
+      row.options = {}; // Options object is required
+      section.rows.push(row);
+    }
+  }
+  pt.sections.push(section);
+  payload.pricing_tables.push(pt);
+  var updateOptions = {
+    'method': 'PATCH',
+    'headers': {
+      'Authorization': 'Bearer ' + access_token,
+      'Content-Type': 'application/json;charset=UTF-8'
+    },
+    'payload': JSON.stringify(payload)
+  };  
+  try {                                  
+  var response = UrlFetchApp.fetch("https://api.pandadoc.com/public/v1/documents/" + docID, updateOptions)
+      // if(JSON.stringify(response) === '{}' ){
+      //       return 'sent'
+      // }
+      // var responseJson = JSON.parse(response);
+      // var docID = responseJson.id
+       if(sendDoc == true) {
+          Utilities.sleep(5000)
+          sendDocuments(docID)
+      }
+      return "updated"
+  } catch(er) {
+      Logger.log(er.toString())
+      return er
+  }
+}
+////////////////////////////////////////////////
+////////////////////////////////////////////////
+////////////////////////////////////////////////
+function createPandaDocument(data,data1,products,sendDoc) {
+  // Logger.log(data)
+  // Logger.log(data1)
+  // Logger.log(products)
+  // data = [test CC email2, baseet2001@gmail.com, baseet, baseet, Recipient]
+  var payload = {};
+  payload.name = data[0]
+  payload.template_uuid = 'h9rCLntazgACQNysGQEggc'  //'z5xE5pzBxMHvtK4h9G44rd'
+  var recipient = {};
+  recipient.email = data[1]  //email
+  recipient.first_name = data[2]  //fname
+  recipient.role = data[4] //Role
+  payload.recipients = [];
+  
+  if ( recipient.email != "" ) 
+  {
+    var recipient1 = {};
+    recipient1.email = 'admin@readysetstaging.com'
+    recipient1.first_name ='Readyset Staging Admin'
+    recipient1.role = 'Sender'
+    payload.recipients = [];
+    payload.recipients.push(recipient1)
+    payload.recipients.push(recipient)
+  }
+  var validDate = new Date(data1[5])
+  validDate.setDate(validDate.getDate() + 1)
+   var data2 = [
+              ['Client.Address',data1[0]],['Recipient.FirstName',data1[1].length == 0 ? '' : data1[1]],
+              ['Design.Fee',data1[2]],
+              ['Todays.Date',Utilities.formatDate(new Date(), Session.getTimeZone(), "MM/dd/YYYY")],
+              ['Rental.Fee',data1[3]],['Rental.Tax',data1[4]],['TotalDueUponStaging.Price',data1[6]],
+              ['valid date',Utilities.formatDate(validDate, Session.getTimeZone(),"MM/dd/YYYY")],
+              ['Contract.Date',Utilities.formatDate(new Date(), Session.getTimeZone(),"MM/dd/YYYY")],
+              ['Design.Date',Utilities.formatDate(validDate, Session.getTimeZone(),"MM/dd/YYYY")],
+              ['Rental Fee for 30 days', data1[3]],['Rental Tax for 30 days', data1[4]],
+              ['Rental.30d', data1[8]],['Rooms.Staged', data1[9]],['resp', data1[10]],
+]
+  payload.tokens = []
+  for(var n = 0;n < data2.length;++n)
+  {
+    var token = {}
+    if(data2[n][1])
+    {
+      token.name = data2[n][0] 
+      token.value = data2[n][1]
+      payload.tokens.push(token)
+    }
+  }
+ 
+  
+  //build pricing table array from products list
+  payload.pricing_tables = [];
+   var pt = {};
+  pt.name = "pricingtable1"; 
+  pt.data_merge = true
+  pt.options = {currency:"USD"};
+  pt.sections = [];
+  var section = {};
+  section.title = "Products";
+  section["default"] = true; 
+  section.rows = [];
+  
+  for(var n=0;n < products.length;n++)
+  {
+    var row = {};
+    row.data ={};
+    if(products[n][0])
+    {
+      row.data.Name = products[n][0]; 
+      //row.data.Description = products[n][1];
+      row.data.QTY = products[n][1];
+      row.data.Price = products[n][2];
+      
+      row.options = {}; // Options object is required
+      section.rows.push(row);
+    }
+  }
+  pt.sections.push(section);
+  payload.pricing_tables.push(pt);
+  
+  // var access_token = '10b8e8be8124d488d4ca3c29484959b56d1c6aa7'   
+  var createOptions = {
+    'method': 'post',
+    'headers': {
+      'Authorization': 'Bearer ' + access_token,
+      'Content-Type': 'application/json;charset=UTF-8'
+    },
+    'payload': JSON.stringify(payload)
+  };
+  try {                                    
+      var response = UrlFetchApp.fetch( "https://api.pandadoc.com/public/v1/documents", createOptions);
+      var responseJson = JSON.parse(response);
+      var docID = responseJson.id
+      if(sendDoc == true) {
+          Utilities.sleep(5000)
+          sendDocuments(docID)
+      }
+      return 'created'
+   } catch(er) {
+     Logger.log(er.toString())
+      return er
+  }
+}
+
+function sendDocuments(docId) {
+  var sendOptions = {
+    'method': 'POST',
+    'headers': {
+      'Authorization': 'Bearer ' + access_token,
+      'Content-Type': 'application/json;charset=UTF-8'
+    }
+  } 
+  try {                                  
+  var response = UrlFetchApp.fetch("https://api.pandadoc.com/public/v1/documents/" + docId + "/send", sendOptions)
+  var responseJson = JSON.parse(response);
+  return 'sent'
+  } catch(er) {
+        return er
+  }
+}
+
