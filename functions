@@ -20,7 +20,7 @@ function listDocuments(name) {
 }
 //'https://api.pandadoc.com/public/v1/templates?deleted=deleted&shared=false&q=q&tag=tag&count=count&page=page&folder_uuid=templates_folder_uuid' \
 function listTemplates(name) {
-  var access_token = '10b8e8be8124d488d4ca3c29484959b56d1c6aa7'  
+  var access_token = ''  
   var updateOptions = {
     'method': 'get',
     'headers': {
